@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Licencias (Compartido)</title>
+    
+    <!-- Estilos CSS (sin cambios) -->
+    <style>
+        /* Estilos Generales */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            color: #005a9c;
+        }
+
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            text-align: center; /* Centramos el texto */
+            font-size: 1.6em; /* Aumentamos el tamaño de fuente */
+        }
+        
+        #auth-info {
+            text-align: center;
+            font-size: 0.9em;
+            color: #777;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin: -10px auto 20px auto;
+            max-width: 80%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        #auth-status {
+            font-weight: bold;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #ddd;
+            margin: 20px 0;
+        }
+
+        /* Layout de Paneles */
+        .paneles-principales {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            flex: 1;
+            min-width: 400px; /* Evita que se encojan demasiado */
+        }
+
+        #panel-recordatorios {
+            flex-basis: 40%;
+        }
+
+        #panel-admin {
+            flex-basis: 55%;
+        }
+
+        #panel-listado-completo {
+            margin-top: 20px;
+            flex-basis: 100%;
+        }
+
+        /* Formularios */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Importante para que el padding no afecte el ancho */
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Listas de Licencias (Dashboard y General) */
+        .dashboard ul {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 50px;
+            list-style-type: none;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        ul li {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        ul li .info {
+            font-size: 1.1em;
+        }
+        ul li .info strong {
+            color: #005a9c;
+        }
+        ul li .info span {
+            font-size: 0.9em;
+            color: #555;
+            display: block;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        /* Mensajes de "no hay licencias" */
+        .empty-list-msg {
+            color: #888;
+            font-style: italic;
+            padding: 10px;
+            background-color: #fff;
+            border: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .paneles-principales {
+                flex-direction: column;
+            }
+            .panel {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gestor de Licencias (Compartido)</h1>
+        
+        <!-- Nuevo: Info de Estado de Conexión y ID de Usuario -->
+        <div id="auth-info">
+            Estado: <span id="auth-status">Conectando...</span> | ID de Usuario: <span id="user-id">N/A</span>
+        </div>
+
+        <div class="paneles-principales">
+            <!-- Columna de Recordatorios -->
+            <div class="panel" id="panel-recordatorios">
+                <h2>Recordatorios</h2>
+                <div class="dashboard">
+                    <h3>🗓️ Licencias - Mes Actual</h3>
+                    <ul id="lista-mes-actual">
+                        <li class="empty-list-msg">Cargando...</li>
+                    </ul>
+                </div>
+                <div class="dashboard">
+                    <h3>📅 Licencias - Próximo Mes</h3>
+                    <ul id="lista-proximo-mes">
+                        <li class="empty-list-msg">Cargando...</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Columna de Administración -->
+            <div class="panel" id="panel-admin">
+                
+                <h2>Gestionar Personal</h2>
+                <form id="form-personal">
+                    <input type="text" id="nombre-personal" placeholder="Nombre del profesional" required>
+                    <button type="submit">Agregar Personal</button>
+                </form>
+                <h3>Personal Actual:</h3>
+                <ul id="lista-personal">
+                    <li class="empty-list-msg">Cargando...</li>
+                </ul>
+
+                <hr>
+
+                <h2>Registrar Nueva Licencia</h2>
+                <form id="form-licencia">
+                    <div class="form-group">
+                        <label for="select-profesional">Profesional:</label>
+                        <select id="select-profesional" required>
+                            <option value="">-- Cargando personal --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha-inicio">Fecha de Inicio:</label>
+                        <input type="date" id="fecha-inicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha-fin">Fecha de Fin:</label>
+                        <input type="date" id="fecha-fin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quien-cubre">Cubre:</label>
+                        <input type="text" id="quien-cubre" placeholder="Nombre de quien lo cubre" required>
+                    </div>
+                    <button type="submit">Agregar Licencia</button>
+                </form>
+
+            </div>
+        </div>
+
+        <div class="panel" id="panel-listado-completo">
+            <h2>Todas las Licencias Registradas</h2>
+            <ul id="lista-todas-licencias">
+                <li class="empty-list-msg">Cargando...</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- JavaScript (Totalmente reescrito para Firestore) -->
+    <script type="module">
+        // --- Imports de Firebase ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            // getFirestore, // <- Reemplazamos esto
+            initializeFirestore, // <- Por esto
+            persistentLocalCache, // <- Y agregamos esto
+            doc, 
+            addDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            collection, 
+            query,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Variables Globales de Firebase ---
+        let db;
+        let auth;
+        let app; // Hacemos 'app' global para que esté disponible
+        
+        // =======================================================================
+        // PASO 1: PEGA TU CONFIGURACIÓN DE FIREBASE AQUÍ
+        // =======================================================================
+        // Andá a tu proyecto de Firebase -> Configuración del proyecto -> Tus apps -> Web
+        // Y pegá el objeto de configuración que te dan, reemplazando esto:
+        
+        // ¡CORREGIDO!
+        // Se eliminaron las etiquetas <script> y las importaciones duplicadas.
+        // Solo dejamos el objeto de configuración.
+        const firebaseConfig = {
+            apiKey: "AIzaSyB0ZNZskD4qFvj1n9s15Kd6ZUj3xwnSuqc",
+            authDomain: "licencias-1a717.firebaseapp.com",
+            projectId: "licencias-1a717",
+            storageBucket: "licencias-1a717.firebasestorage.app",
+            messagingSenderId: "81776336703",
+            appId: "1:81776336703:web:e4a42b8c759dfa89a5fd8a"
+        };
+        
+        // =======================================================================
+        // FIN DEL PASO 1
+        // =======================================================================
+
+
+        // --- Rutas de la Base de Datos (¡MODIFICADO!) ---
+        // Estas rutas ahora apuntan a colecciones en la raíz de tu base de datos.
+        const personalColPath = "personal";
+        const licenciasColPath = "licencias";
+
+        // --- Selectores del DOM ---
+        const formPersonal = document.getElementById('form-personal');
+        const inputNombrePersonal = document.getElementById('nombre-personal');
+        const listaPersonal = document.getElementById('lista-personal');
+        
+        const formLicencia = document.getElementById('form-licencia');
+        const selectProfesional = document.getElementById('select-profesional');
+        const inputFechaInicio = document.getElementById('fecha-inicio');
+        const inputFechaFin = document.getElementById('fecha-fin');
+        const inputQuienCubre = document.getElementById('quien-cubre');
+
+        const listaMesActual = document.getElementById('lista-mes-actual');
+        const listaProximoMes = document.getElementById('lista-proximo-mes');
+        const listaTodasLicencias = document.getElementById('lista-todas-licencias');
+        
+        const authStatusEl = document.getElementById('auth-status');
+        const userIdEl = document.getElementById('user-id');
+
+        // --- Funciones de Renderizado ---
+
+        // Renderiza la lista de personal en "Gestionar Personal"
+        function renderizarListaPersonal(personal) {
+            listaPersonal.innerHTML = '';
+            if (personal.length === 0) {
+                listaPersonal.innerHTML = '<li class="empty-list-msg">Aún no hay personal cargado.</li>';
+                return;
+            }
+            personal.forEach(p => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="info">${p.nombre}</div>
+                    <button class="delete-btn" data-id="${p.id}">Eliminar</button>
+                `;
+                listaPersonal.appendChild(li);
+            });
+        }
+
+        // Renderiza el <select> en el formulario de licencias
+        function renderizarSelectProfesional(personal) {
+            selectProfesional.innerHTML = '<option value="">-- Elegir profesional --</option>';
+            personal.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.nombre;
+                option.textContent = p.nombre;
+                selectProfesional.appendChild(option);
+            });
+        }
+
+        // Formateador de fechas
+        function formatFecha(fechaISO) {
+            const fecha = new Date(fechaISO);
+            fecha.setMinutes(fecha.getMinutes() + fecha.getTimezoneOffset());
+            const dia = String(fecha.getDate()).padStart(2, '0');
+            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            const anio = fecha.getFullYear();
+            return `${dia}/${mes}/${anio}`;
+        }
+
+        // Renderiza el panel "Todas las Licencias"
+        function renderizarTodasLicencias(licencias) {
+            listaTodasLicencias.innerHTML = '';
+            if (licencias.length === 0) {
+                listaTodasLicencias.innerHTML = '<li class="empty-list-msg">No hay licencias registradas.</li>';
+                return;
+            }
+
+            const licenciasOrdenadas = [...licencias].sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio));
+            licenciasOrdenadas.forEach(licencia => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="info">
+                        <strong>${licencia.profesional}</strong>
+                        <span>Del ${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span>
+                        <span>Cubre: ${licencia.quienCubre}</span>
+                    </div>
+                    <button class="delete-btn" data-id="${licencia.id}">Eliminar</button>
+                `;
+                listaTodasLicencias.appendChild(li);
+            });
+        }
+
+        // Renderiza los paneles de "Mes Actual" y "Próximo Mes"
+        function renderizarPanelesDashboard(licencias) {
+            listaMesActual.innerHTML = '';
+            listaProximoMes.innerHTML = '';
+
+            const hoy = new Date();
+            const hoyLocal = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+            const anioActual = hoyLocal.getFullYear();
+            const mesActual = hoyLocal.getMonth();
+
+            const inicioMesActual = new Date(anioActual, mesActual, 1);
+            const finMesActual = new Date(anioActual, mesActual + 1, 0);
+
+            const anioProximo = (mesActual === 11) ? anioActual + 1 : anioActual;
+            const mesProximo = (mesActual === 11) ? 0 : mesActual + 1;
+            const inicioProximoMes = new Date(anioProximo, mesProximo, 1);
+            const finProximoMes = new Date(anioProximo, mesProximo + 1, 0);
+
+            let hayEnMesActual = false;
+            let hayEnProximoMes = false;
+
+            const seSolapan = (inicioA, finA, inicioB, finB) => {
+                const finLicenciaEfectiva = new Date(finA.getTime());
+                finLicenciaEfectiva.setHours(23, 59, 59);
+                const inicioMesEfectivo = new Date(inicioB.getTime());
+                inicioMesEfectivo.setHours(0, 0, 0);
+                return inicioA <= finB && finLicenciaEfectiva >= inicioMesEfectivo;
+            };
+
+            licencias.forEach(licencia => {
+                const partsInicio = licencia.fechaInicio.split('-').map(Number);
+                const partsFin = licencia.fechaFin.split('-').map(Number);
+                const inicioLicencia = new Date(partsInicio[0], partsInicio[1] - 1, partsInicio[2]);
+                const finLicencia = new Date(partsFin[0], partsFin[1] - 1, partsFin[2]);
+
+                if (seSolapan(inicioLicencia, finLicencia, inicioMesActual, finMesActual)) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<div class="info"><strong>${licencia.profesional}</strong><span>${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span></div>`;
+                    listaMesActual.appendChild(li);
+                    hayEnMesActual = true;
+                }
+
+                if (seSolapan(inicioLicencia, finLicencia, inicioProximoMes, finProximoMes)) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<div class="info"><strong>${licencia.profesional}</strong><span>${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span></div>`;
+                    listaProximoMes.appendChild(li);
+                    hayEnProximoMes = true;
+                }
+            });
+
+            if (!hayEnMesActual) listaMesActual.innerHTML = '<li class="empty-list-msg">Nadie de licencia este mes.</li>';
+            if (!hayEnProximoMes) listaProximoMes.innerHTML = '<li class="empty-list-msg">Sin licencias programadas.</li>';
+        }
+
+        // --- Funciones de "Escucha" (onSnapshot) ---
+
+        // Se suscribe a los cambios en la colección 'personal'
+        function escucharPersonal() {
+            const q = query(collection(db, personalColPath));
+            onSnapshot(q, (snapshot) => {
+                const personal = [];
+                snapshot.docs.forEach(doc => {
+                    personal.push({ id: doc.id, ...doc.data() });
+                });
+                renderizarListaPersonal(personal);
+                renderizarSelectProfesional(personal);
+            }, (error) => {
+                console.error("Error escuchando personal: ", error);
+                listaPersonal.innerHTML = '<li class="empty-list-msg">Error al cargar personal.</li>';
+            });
+        }
+
+        // Se suscribe a los cambios en la colección 'licencias'
+        function escucharLicencias() {
+            const q = query(collection(db, licenciasColPath));
+            onSnapshot(q, (snapshot) => {
+                const licencias = [];
+                snapshot.docs.forEach(doc => {
+                    licencias.push({ id: doc.id, ...doc.data() });
+                });
+                renderizarTodasLicencias(licencias);
+                renderizarPanelesDashboard(licencias);
+            }, (error) => {
+                console.error("Error escuchando licencias: ", error);
+                listaTodasLicencias.innerHTML = '<li class="empty-list-msg">Error al cargar licencias.</li>';
+            });
+        }
+
+        // --- Manejadores de Eventos (Formularios y Clicks) ---
+
+        // Configura los 'submit' de los formularios
+        function setupFormListeners() {
+            // Agregar Personal
+            formPersonal.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nombre = inputNombrePersonal.value.trim();
+                if (nombre) {
+                    try {
+                        await addDoc(collection(db, personalColPath), { nombre: nombre });
+                        inputNombrePersonal.value = '';
+                    } catch (error) {
+                        console.error("Error agregando personal: ", error);
+                    }
+                }
+            });
+
+            // Agregar Licencia
+            formLicencia.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const profesional = selectProfesional.value;
+                const fechaInicio = inputFechaInicio.value;
+                const fechaFin = inputFechaFin.value;
+                const quienCubre = inputQuienCubre.value.trim();
+
+                if (!profesional || !fechaInicio || !fechaFin || !quienCubre) return;
+                if (new Date(fechaFin) < new Date(fechaInicio)) return;
+
+                const nuevaLicencia = { profesional, fechaInicio, fechaFin, quienCubre };
+                
+                try {
+                    await addDoc(collection(db, licenciasColPath), nuevaLicencia);
+                    formLicencia.reset();
+                } catch (error) {
+                    console.error("Error agregando licencia: ", error);
+                }
+            });
+        }
+
+        // Configura los 'click' para borrar (delegación de eventos)
+        function setupClickListeners() {
+            // Borrar Personal
+            listaPersonal.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const id = e.target.getAttribute('data-id');
+                    try {
+                        await deleteDoc(doc(db, personalColPath, id));
+                    } catch (error) {
+                        console.error("Error borrando personal: ", error);
+                    }
+                }
+            });
+
+            // Borrar Licencia
+            listaTodasLicencias.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const id = e.target.getAttribute('data-id');
+                    try {
+                        await deleteDoc(doc(db, licenciasColPath, id));
+                    } catch (error) {
+                        console.error("Error borrando licencia: ", error);
+                    }
+                }
+            });
+        }
+
+
+        // --- Inicialización ---
+        async function inicializarApp() {
+            // Chequeamos si la configuración fue pegada
+            if (firebaseConfig.apiKey === "TU_API_KEY_VA_AQUI") {
+                authStatusEl.textContent = "Error: Configuración de Firebase no encontrada. Pega tus claves en el archivo index.html.";
+                return;
+            }
+
+            try {
+                // 1. Inicializar App y Servicios
+                // ¡CORREGIDO!
+                // La variable 'app' se declara arriba y se asigna aquí.
+                app = initializeApp(firebaseConfig);
+                
+                // db = getFirestore(app); // <-- Reemplazamos esta línea
+                // Habilitamos la persistencia offline
+                db = initializeFirestore(app, {
+                    localCache: persistentLocalCache({})
+                }); // <-- Por esta nueva inicialización
+                
+                auth = getAuth(app);
+                setLogLevel('Debug'); // Para ver logs en consola
+
+                // 2. Autenticación (¡MODIFICADO!)
+                // =======================================================================
+                // SACAMOS TODA LA LÓGICA DE 'initialAuthToken' Y 'signInWithCustomToken'.
+                // Ahora, la app *siempre* iniciará sesión de forma anónima
+                // cuando la subas a tu propio servidor.
+                // =======================================================================
+                
+                await signInAnonymously(auth);
+
+                // 3. Escuchar cambios de autenticación
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        authStatusEl.textContent = "Conectado";
+                        userIdEl.textContent = user.uid; // Mostrar el ID de usuario
+
+                        // 4. Configurar escuchadores de datos (¡Solo después de estar autenticado!)
+                        escucharPersonal();
+                        escucharLicencias();
+
+                        // 5. Configurar manejadores de formularios y clicks
+                        setupFormListeners();
+                        setupClickListeners();
+
+                    } else {
+                        authStatusEl.textContent = "Desconectado";
+                        userIdEl.textContent = "N/A";
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase: ", error);
+                authStatusEl.textContent = "Error de conexión";
+            }
+        }
+
+        // --- Punto de Entrada ---
+        document.addEventListener('DOMContentLoaded', inicializarApp);
+    </script>
+</body>
+</html>
