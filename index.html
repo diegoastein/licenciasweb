@@ -1,630 +1,714 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Licencias (Compartido)</title>
-    
-    <!-- Estilos CSS (sin cambios) -->
-    <style>
-        /* Estilos Generales */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestión de Licencias (Firestore)</title>
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  <style>
+    *{box-sizing:border-box} html,body{height:100%}
+    :root{
+      --bg:#0f172a; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb;
+      --accent:#4f46e5; --accent-2:#4338ca; --ok:#16a34a;
+      --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    body{
+      margin:0;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      color:var(--text);
+      background:radial-gradient(1200px 800px at 10% -10%, #1e293b 10%, var(--bg) 60%);
+    }
+    .app{ max-width:1100px; margin:40px auto; padding:24px; }
 
-        h1, h2, h3 {
-            color: #005a9c;
-        }
+    .header{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:6px; }
+    .header h1{ margin:0; font-size:clamp(22px,3.2vw,32px) }
+    .sub{ color:var(--muted); font-size:14px }
+    #status{ margin-bottom:16px; color:#fbbf24; font-size:13px; }
 
-        h1 {
-            text-align: center;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 10px;
-        }
+    .card, details{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+      padding:20px; margin-top:16px;
+    }
 
-        h2 {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-            text-align: center; /* Centramos el texto */
-            font-size: 1.6em; /* Aumentamos el tamaño de fuente */
-        }
-        
-        #auth-info {
-            text-align: center;
-            font-size: 0.9em;
-            color: #777;
-            background-color: #fff;
-            padding: 10px;
-            border-radius: 8px;
-            margin: -10px auto 20px auto;
-            max-width: 80%;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        #auth-status {
-            font-weight: bold;
-        }
+    /* Bloque "Licencias de este mes" bien destacado (verde) */
+    #blockMesActual{
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      border:1px solid #16a34a;
+      box-shadow:0 0 25px rgba(34,197,94,0.5);
+    }
+    #blockMesActual h2,
+    #blockMesActual .count{
+      color:#f9fafb;
+      text-shadow:0 1px 3px rgba(0,0,0,.7);
+    }
 
-        hr {
-            border: 0;
-            border-top: 1px solid #ddd;
-            margin: 20px 0;
-        }
+    h2{ margin:0 0 10px 0; font-size:20px }
 
-        /* Layout de Paneles */
-        .paneles-principales {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
+    form{ display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)) }
+    label{ font-size:12px; color:var(--muted); margin-bottom:4px; display:block }
 
-        .panel {
-            background-color: #ffffff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            flex: 1;
-            min-width: 400px; /* Evita que se encojan demasiado */
-        }
+    input, select{
+      width:100%; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,.07);
+      background:#0b1220; color:var(--text); outline:none;
+    }
 
-        #panel-recordatorios {
-            flex-basis: 40%;
-        }
+    input:focus, select:focus{
+      box-shadow:0 0 0 3px rgba(79,70,229,.25);
+      border-color:var(--accent);
+    }
 
-        #panel-admin {
-            flex-basis: 55%;
-        }
+    .actions{
+      display:flex; gap:10px; margin-top:6px; align-items:center; flex-wrap:wrap;
+    }
 
-        #panel-listado-completo {
-            margin-top: 20px;
-            flex-basis: 100%;
-        }
+    button{
+      border:0; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600;
+      background:linear-gradient(180deg, var(--accent), var(--accent-2)); color:white;
+      box-shadow:0 8px 20px rgba(79,70,229,.35);
+      transition:.15s transform ease;
+      font-size:13px;
+    }
+    button:hover{ transform:translateY(-1px) }
+    .secondary{ background:#111827; border:1px solid rgba(255,255,255,.07) }
+    .danger{ background:#7f1d1d; border:1px solid #b91c1c; box-shadow:0 8px 20px rgba(185,28,28,.4); }
+    .ok{ background:linear-gradient(180deg,#22c55e,var(--ok)) }
 
-        /* Formularios */
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+    .table-wrap{ overflow:auto; border-radius:14px; border:1px solid rgba(255,255,255,.06) }
+    table{ width:100%; border-collapse:collapse; font-size:14px; background:#0b1220 }
+    thead th{
+      position:sticky; top:0; background:#0f172a; padding:12px; color:#cbd5e1;
+      border-bottom:1px solid rgba(255,255,255,.06); text-align:left;
+    }
+    tbody td{ padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.06) }
+    tbody tr:hover{ background:rgba(79,70,229,.08) }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
+    .count{ font-size:clamp(18px,3.2vw,22px); color:#e5e7eb; margin-bottom:10px }
+    .kpis{ display:flex; flex-wrap:wrap; gap:10px; margin-top:8px }
+    .pill{
+      border:1px solid rgba(255,255,255,.12); border-radius:999px;
+      padding:.4rem .7rem; font-size:13px; color:#d1d5db;
+      display:flex; align-items:center; gap:8px;
+      background:#02061755;
+    }
+    .pill .dot{ width:8px; height:8px; border-radius:999px; background:#4f46e5 }
+    .biglist{ display:grid; gap:10px; margin-top:12px }
+    .item{
+      border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px; background:#0b1220;
+    }
+    .item .who{ font-weight:600 }
+    .item .dates{ color:#cbd5e1; font-size:13px }
 
-        input[type="text"],
-        input[type="date"],
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box; /* Importante para que el padding no afecte el ancho */
-        }
+    summary{ cursor:pointer; font-weight:600; font-size:1.05rem; color:var(--text); list-style:none }
+    summary::marker{ display:none }
+    summary::before{
+      content:"▶"; margin-right:8px; transition:transform .2s ease; display:inline-block;
+    }
+    details[open] summary::before{ transform:rotate(90deg) }
 
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        /* Listas de Licencias (Dashboard y General) */
-        .dashboard ul {
-            background-color: #f9f9f9;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            padding: 15px;
-            min-height: 50px;
-            list-style-type: none;
-        }
-
-        ul {
-            list-style-type: none;
-            padding-left: 0;
-        }
-
-        ul li {
-            background-color: #fff;
-            border: 1px solid #ddd;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        ul li .info {
-            font-size: 1.1em;
-        }
-        ul li .info strong {
-            color: #005a9c;
-        }
-        ul li .info span {
-            font-size: 0.9em;
-            color: #555;
-            display: block;
-        }
-
-        .delete-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .delete-btn:hover {
-            background-color: #c82333;
-        }
-
-        /* Mensajes de "no hay licencias" */
-        .empty-list-msg {
-            color: #888;
-            font-style: italic;
-            padding: 10px;
-            background-color: #fff;
-            border: none;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .paneles-principales {
-                flex-direction: column;
-            }
-            .panel {
-                min-width: 100%;
-            }
-        }
-    </style>
+    @media (max-width:640px){
+      .header{flex-direction:column; align-items:flex-start}
+      table{font-size:13px}
+    }
+  </style>
 </head>
+
 <body>
+  <div class="app">
 
-    <div class="container">
-        <h1>Gestor de Licencias (Compartido)</h1>
-        
-        <!-- Nuevo: Info de Estado de Conexión y ID de Usuario -->
-        <div id="auth-info">
-            Estado: <span id="auth-status">Conectando...</span> | ID de Usuario: <span id="user-id">N/A</span>
-        </div>
+    <!-- ENCABEZADO -->
+    <div class="header">
+      <h1>Gestión de Licencias</h1>
+      <div class="sub">Sincroniza con tu Firebase existente</div>
+    </div>
+    <div id="status" class="sub"></div>
 
-        <div class="paneles-principales">
-            <!-- Columna de Recordatorios -->
-            <div class="panel" id="panel-recordatorios">
-                <h2>Recordatorios</h2>
-                <div class="dashboard">
-                    <h3>🗓️ Licencias - Mes Actual</h3>
-                    <ul id="lista-mes-actual">
-                        <li class="empty-list-msg">Cargando...</li>
-                    </ul>
-                </div>
-                <div class="dashboard">
-                    <h3>📅 Licencias - Próximo Mes</h3>
-                    <ul id="lista-proximo-mes">
-                        <li class="empty-list-msg">Cargando...</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Columna de Administración -->
-            <div class="panel" id="panel-admin">
-                
-                <h2>Gestionar Personal</h2>
-                <form id="form-personal">
-                    <input type="text" id="nombre-personal" placeholder="Nombre del profesional" required>
-                    <button type="submit">Agregar Personal</button>
-                </form>
-                <h3>Personal Actual:</h3>
-                <ul id="lista-personal">
-                    <li class="empty-list-msg">Cargando...</li>
-                </ul>
-
-                <hr>
-
-                <h2>Registrar Nueva Licencia</h2>
-                <form id="form-licencia">
-                    <div class="form-group">
-                        <label for="select-profesional">Profesional:</label>
-                        <select id="select-profesional" required>
-                            <option value="">-- Cargando personal --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="fecha-inicio">Fecha de Inicio:</label>
-                        <input type="date" id="fecha-inicio" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="fecha-fin">Fecha de Fin:</label>
-                        <input type="date" id="fecha-fin" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="quien-cubre">Cubre:</label>
-                        <input type="text" id="quien-cubre" placeholder="Nombre de quien lo cubre" required>
-                    </div>
-                    <button type="submit">Agregar Licencia</button>
-                </form>
-
-            </div>
-        </div>
-
-        <div class="panel" id="panel-listado-completo">
-            <h2>Todas las Licencias Registradas</h2>
-            <ul id="lista-todas-licencias">
-                <li class="empty-list-msg">Cargando...</li>
-            </ul>
-        </div>
-
+    <!-- BLOQUES DESTACADOS -->
+    <div class="card" id="blockMesActual">
+      <h2 id="titleMesActual">Licencias de este mes</h2>
+      <div class="count" id="countMesActual">0 licencias</div>
+      <div class="kpis" id="kpisMesActual"></div>
+      <div class="biglist" id="listMesActual"></div>
     </div>
 
-    <!-- JavaScript (Totalmente reescrito para Firestore) -->
-    <script type="module">
-        // --- Imports de Firebase ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            // getFirestore, // <- Reemplazamos esto
-            initializeFirestore, // <- Por esto
-            persistentLocalCache, // <- Y agregamos esto
-            doc, 
-            addDoc, 
-            deleteDoc, 
-            onSnapshot, 
-            collection, 
-            query,
-            setLogLevel
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div class="card" id="blockMesSiguiente">
+      <h2 id="titleMesSiguiente">Licencias del mes siguiente</h2>
+      <div class="count" id="countMesSiguiente">0 licencias</div>
+      <div class="kpis" id="kpisMesSiguiente"></div>
+      <div class="biglist" id="listMesSiguiente"></div>
+    </div>
 
-        // --- Variables Globales de Firebase ---
-        let db;
-        let auth;
-        let app; // Hacemos 'app' global para que esté disponible
-        
-        // =======================================================================
-        // PASO 1: PEGA TU CONFIGURACIÓN DE FIREBASE AQUÍ
-        // =======================================================================
-        // Andá a tu proyecto de Firebase -> Configuración del proyecto -> Tus apps -> Web
-        // Y pegá el objeto de configuración que te dan, reemplazando esto:
-        
-        // ¡CORREGIDO!
-        // Se eliminaron las etiquetas <script> y las importaciones duplicadas.
-        // Solo dejamos el objeto de configuración.
-        const firebaseConfig = {
-            apiKey: "AIzaSyB0ZNZskD4qFvj1n9s15Kd6ZUj3xwnSuqc",
-            authDomain: "licencias-1a717.firebaseapp.com",
-            projectId: "licencias-1a717",
-            storageBucket: "licencias-1a717.firebasestorage.app",
-            messagingSenderId: "81776336703",
-            appId: "1:81776336703:web:e4a42b8c759dfa89a5fd8a"
-        };
-        
-        // =======================================================================
-        // FIN DEL PASO 1
-        // =======================================================================
+    <!-- FORM LICENCIAS -->
+    <div class="card">
+      <h2>Nueva licencia</h2>
 
+      <form id="formLicencia">
+        <div>
+          <label>Profesional</label>
+          <select id="profesional" required>
+            <option value="">-- Elegir profesional --</option>
+          </select>
+        </div>
 
-        // --- Rutas de la Base de Datos (¡MODIFICADO!) ---
-        // Estas rutas ahora apuntan a colecciones en la raíz de tu base de datos.
-        const personalColPath = "personal";
-        const licenciasColPath = "licencias";
+        <div>
+          <label>Fecha de inicio</label>
+          <input type="date" id="fechaInicio" required />
+        </div>
 
-        // --- Selectores del DOM ---
-        const formPersonal = document.getElementById('form-personal');
-        const inputNombrePersonal = document.getElementById('nombre-personal');
-        const listaPersonal = document.getElementById('lista-personal');
-        
-        const formLicencia = document.getElementById('form-licencia');
-        const selectProfesional = document.getElementById('select-profesional');
-        const inputFechaInicio = document.getElementById('fecha-inicio');
-        const inputFechaFin = document.getElementById('fecha-fin');
-        const inputQuienCubre = document.getElementById('quien-cubre');
+        <div>
+          <label>Fecha de finalización</label>
+          <input type="date" id="fechaFin" required />
+        </div>
 
-        const listaMesActual = document.getElementById('lista-mes-actual');
-        const listaProximoMes = document.getElementById('lista-proximo-mes');
-        const listaTodasLicencias = document.getElementById('lista-todas-licencias');
-        
-        const authStatusEl = document.getElementById('auth-status');
-        const userIdEl = document.getElementById('user-id');
+        <div>
+          <label>Cubre</label>
+          <input type="text" id="cubre" placeholder="Nombre y Apellido del reemplazo" />
+        </div>
 
-        // --- Funciones de Renderizado ---
+        <div class="actions">
+          <button type="submit" id="btnSubmitLic" class="ok">Registrar licencia</button>
+          <button type="button" id="cancelEditLic" class="secondary" style="display:none">Cancelar edición</button>
+        </div>
+      </form>
+    </div>
 
-        // Renderiza la lista de personal en "Gestionar Personal"
-        function renderizarListaPersonal(personal) {
-            listaPersonal.innerHTML = '';
-            if (personal.length === 0) {
-                listaPersonal.innerHTML = '<li class="empty-list-msg">Aún no hay personal cargado.</li>';
-                return;
-            }
-            personal.forEach(p => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <div class="info">${p.nombre}</div>
-                    <button class="delete-btn" data-id="${p.id}">Eliminar</button>
-                `;
-                listaPersonal.appendChild(li);
-            });
+    <!-- TABLA LICENCIAS -->
+    <details>
+      <summary>Licencias registradas</summary>
+      <div class="inner">
+        <div class="table-wrap">
+          <table id="tablaLicencias">
+            <thead>
+              <tr>
+                <th>Profesional</th>
+                <th>Cubre</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <!-- HISTORIAL -->
+    <div class="card">
+      <h2>Historial de licencias</h2>
+
+      <div class="actions">
+        <label>Seleccionar profesional</label>
+        <select id="buscadorProfesional">
+          <option value="">-- Elegir profesional --</option>
+        </select>
+        <button id="buscarHistorial" class="secondary" type="button">Buscar</button>
+      </div>
+
+      <div id="resultadoHistorial" style="margin-top:1rem"></div>
+    </div>
+
+    <!-- PERSONAL -->
+    <details>
+      <summary>Personal actual</summary>
+      <div class="inner">
+        <div class="table-wrap">
+          <table id="tablaPersonal">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>DNI</th>
+                <th>Servicio</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <div class="card">
+      <h2>Gestión de personal</h2>
+      <form id="formPersonal">
+        <div>
+          <label>Nombre y Apellido</label>
+          <input type="text" id="nombrePersonal" required />
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="btnSubmitPers" class="ok">Agregar profesional</button>
+          <button type="button" id="cancelEditPers" class="secondary" style="display:none">Cancelar edición</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================  JAVASCRIPT  =================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, getDocs, onSnapshot, query, where,
+      updateDoc, deleteDoc, doc
+    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+    import {
+      getAuth, signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB0ZNZskD4qFvj1n9s15Kd6ZUj3xwnSuqc",
+      authDomain: "licencias-1a717.firebaseapp.com",
+      projectId: "licencias-1a717",
+      storageBucket: "licencias-1a717.firebasestorage.app",
+      messagingSenderId: "81776336703",
+      appId: "1:81776336703:web:e4a42b8c759dfa89a5fd8a"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const dbFS = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Cambiá estos nombres si tus colecciones se llaman distinto
+    const COL_PERSONAL  = "personal";
+    const COL_LICENCIAS = "licencias";
+
+    const $ = s => document.querySelector(s);
+    const td = v => `<td>${v ?? ""}</td>`;
+    const statusEl = $("#status");
+    const setStatus = msg => { if(statusEl) statusEl.textContent = msg || ""; };
+
+    // Convierte distintos tipos a Date
+    const toDate = (v)=>{
+      if(!v) return null;
+      if(v instanceof Date) return v;
+      if(typeof v.toDate === "function") return v.toDate(); // Timestamp Firestore
+      return new Date(v);
+    };
+
+    // Formato para <input type="date"> → YYYY-MM-DD
+    const fmtISO = d => {
+      const x = toDate(d);
+      if(!x || isNaN(+x)) return "";
+      return x.toISOString().slice(0,10);
+    };
+
+    // Formato argentino para mostrar → DD/MM/AAAA
+    const fmtAR = d => {
+      const x = toDate(d);
+      if(!x || isNaN(+x)) return "";
+      const day = x.getDate().toString().padStart(2,"0");
+      const mon = (x.getMonth()+1).toString().padStart(2,"0");
+      const year = x.getFullYear();
+      return `${day}/${mon}/${year}`;
+    };
+
+    const monthLabel = date =>
+      date.toLocaleDateString("es-AR",{month:"long",year:"numeric"})
+           .replace(/^./,c=>c.toUpperCase());
+
+    const monthRange = (offset=0)=>{
+      const now=new Date(); const y=now.getFullYear(), m=now.getMonth()+offset;
+      return { start:new Date(y,m,1), end:new Date(y,m+1,1), label:monthLabel(new Date(y,m,1)) };
+    };
+
+    const inRange=(d,start,end)=>{
+      const x=toDate(d);
+      return x && +x>=+start && +x<+end;
+    };
+
+    const pick = (obj, keys) => keys.find(k => obj?.[k] !== undefined);
+
+    const selAltaProf   = $("#profesional");
+    const selHistProf   = $("#buscadorProfesional");
+    const tbodyPersonal = $("#tablaPersonal tbody");
+    const tbodyLic      = $("#tablaLicencias tbody");
+    const resHist       = $("#resultadoHistorial");
+
+    const titleMesActual = $("#titleMesActual");
+    const countMesActual = $("#countMesActual");
+    const kpisMesActual  = $("#kpisMesActual");
+    const listMesActual  = $("#listMesActual");
+    const titleMesSiguiente = $("#titleMesSiguiente");
+    const countMesSiguiente = $("#countMesSiguiente");
+    const kpisMesSiguiente  = $("#kpisMesSiguiente");
+    const listMesSiguiente  = $("#listMesSiguiente");
+
+    const btnSubmitLic      = $("#btnSubmitLic");
+    const btnCancelEditLic  = $("#cancelEditLic");
+    const btnSubmitPers     = $("#btnSubmitPers");
+    const btnCancelEditPers = $("#cancelEditPers");
+
+    let cachePersonal = [];
+    let cacheLic      = [];
+    let editingLicId  = null;
+    let editingPersId = null;
+
+    function renderPersonalAndSelects(){
+      tbodyPersonal.innerHTML = cachePersonal
+        .map(p=>`<tr>
+          ${td(p.nombre)}${td(p.dni)}${td(p.servicio)}
+          <td>
+            <button type="button" class="secondary btn-edit-pers" data-id="${p.id}">Editar</button>
+            <button type="button" class="danger btn-del-pers" data-id="${p.id}">Borrar</button>
+          </td>
+        </tr>`).join("");
+
+      const opciones = [...new Set(cachePersonal.map(p=>p.nombre).filter(Boolean))];
+      const opts = `<option value="">-- Elegir profesional --</option>` + opciones.map(n=>`<option>${n}</option>`).join("");
+      selAltaProf.innerHTML = opts;
+      selHistProf.innerHTML = opts;
+    }
+
+    function renderLicenciasYMeses(){
+      tbodyLic.innerHTML = cacheLic
+        .map(l=>`<tr>
+          ${td(l.profesional)}${td(l.cubre || "")}${td(fmtAR(l.inicio))}${td(fmtAR(l.fin))}
+          <td>
+            <button type="button" class="secondary btn-edit-lic" data-id="${l.id}">Editar</button>
+            <button type="button" class="danger btn-del-lic" data-id="${l.id}">Borrar</button>
+          </td>
+        </tr>`).join("");
+
+      renderMes(cacheLic, 0, {title:titleMesActual, count:countMesActual, kpis:kpisMesActual, list:listMesActual});
+      renderMes(cacheLic, 1, {title:titleMesSiguiente, count:countMesSiguiente, kpis:kpisMesSiguiente, list:listMesSiguiente});
+    }
+
+    // KPI "Cubre"
+    function renderMes(all, offset, targets){
+      const { start, end, label } = monthRange(offset);
+      const arr = all.filter(l => inRange(l.inicio, start, end) || inRange(l.fin, start, end));
+      targets.title.textContent = `Licencias de ${label}`;
+      targets.count.textContent = `${arr.length} licencia${arr.length!==1?'s':''}`;
+
+      const unicos = new Set(arr.map(a=>a.profesional).filter(Boolean)).size;
+      const cubreSet = new Set(arr.map(a=>a.cubre).filter(Boolean));
+      const cubreTxt = [...cubreSet].join(" • ") || "—";
+
+      targets.kpis.innerHTML = `
+        <div class="pill"><span class="dot"></span>Profesionales: <strong>${unicos}</strong></div>
+        <div class="pill"><span class="dot"></span>Cubre: <strong>${cubreTxt}</strong></div>
+      `;
+      targets.list.innerHTML = arr.map(a=>`
+        <div class="item">
+          <div>
+            <div class="who">${a.profesional || '(Sin nombre)'}</div>
+            <div class="dates">
+              ${fmtAR(a.inicio)} → ${fmtAR(a.fin)}
+              ${a.cubre ? ` • Cubre: ${a.cubre}` : ""}
+            </div>
+          </div>
+        </div>
+      `).join("") || `<div class="item"><div>No hay licencias registradas para ${label}.</div></div>`;
+    }
+
+    async function loadPersonal(){
+      try{
+        const snap = await getDocs(collection(dbFS, COL_PERSONAL));
+        cachePersonal = [];
+        snap.forEach(docSnap=>{
+          const d = docSnap.data();
+          cachePersonal.push({
+            id: docSnap.id,
+            nombre:   d[pick(d,["nombre","name","nombreCompleto","apellidoNombre","ApellidoNombre","profesional","Profesional"])] ?? "",
+            dni:      d[pick(d,["dni","DNI","documento","Documento","doc"])] ?? "",
+            servicio: d[pick(d,["servicio","Servicio","sector","Sector","area","Area","seccion","Seccion"])] ?? ""
+          });
+        });
+        renderPersonalAndSelects();
+      } catch(err){
+        console.error("Error leyendo PERSONAL FS:", err);
+        setStatus("Error leyendo personal: " + (err.message || err.code));
+      }
+    }
+
+    function listenLicencias(){
+      const col = collection(dbFS, COL_LICENCIAS);
+      onSnapshot(col, (snap)=>{
+        cacheLic = [];
+        snap.forEach(docSnap=>{
+          const d = docSnap.data();
+          cacheLic.push({
+            id: docSnap.id,
+            profesional: d[pick(d,[
+              "profesional","profesionalNombre","professional","Profesional","ApellidoNombre","apellidoNombre"
+            ])] ?? "",
+            cubre: d[pick(d,[
+              "cubre","Cubre","cubreServicio","cobertura","Cobertura"
+            ])] ?? "",
+            inicio: d[pick(d,[
+              "inicio","fechaInicio","FechaInicio","desde","Desde","FechaDesde"
+            ])] ?? "",
+            fin:    d[pick(d,[
+              "fin","fechaFin","FechaFin","hasta","Hasta","FechaHasta"
+            ])] ?? ""
+          });
+        });
+        renderLicenciasYMeses();
+        if(snap.size === 0){
+          setStatus(`No se encontraron licencias en la colección "${COL_LICENCIAS}".`);
+        } else {
+          setStatus("");
         }
+      }, (err)=>{
+        console.error("Error leyendo LICENCIAS FS:", err);
+        setStatus("Error leyendo licencias: " + (err.message || err.code));
+      });
+    }
 
-        // Renderiza el <select> en el formulario de licencias
-        function renderizarSelectProfesional(personal) {
-            selectProfesional.innerHTML = '<option value="">-- Elegir profesional --</option>';
-            personal.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.nombre;
-                option.textContent = p.nombre;
-                selectProfesional.appendChild(option);
-            });
+    // === LICENCIAS: alta / edición ===
+    $("#formLicencia").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const profesional = $("#profesional").value.trim();
+      const inicio = $("#fechaInicio").value;
+      const fin    = $("#fechaFin").value;
+      const cubre  = $("#cubre").value.trim();
+      if(!profesional || !inicio || !fin){
+        alert("Completá profesional y fechas.");
+        return;
+      }
+
+      try{
+        if(editingLicId){
+          await updateDoc(doc(dbFS, COL_LICENCIAS, editingLicId), {
+            profesional,
+            inicio,
+            fin,
+            cubre: cubre || null
+          });
+          alert("Licencia actualizada.");
+        } else {
+          await addDoc(collection(dbFS, COL_LICENCIAS), {
+            profesional,
+            inicio,
+            fin,
+            cubre: cubre || null,
+            creadoEn:new Date().toISOString()
+          });
+          alert("Licencia registrada.");
         }
+        $("#fechaInicio").value="";
+        $("#fechaFin").value="";
+        $("#cubre").value="";
+        $("#profesional").value="";
+        editingLicId = null;
+        btnSubmitLic.textContent = "Registrar licencia";
+        btnCancelEditLic.style.display = "none";
+        setStatus("");
+      } catch(err){
+        console.error("Error al guardar licencia:", err);
+        alert("Error al guardar licencia: " + (err.message || err.code));
+        setStatus("Error al guardar licencia: " + (err.message || err.code));
+      }
+    });
 
-        // Formateador de fechas
-        function formatFecha(fechaISO) {
-            const fecha = new Date(fechaISO);
-            fecha.setMinutes(fecha.getMinutes() + fecha.getTimezoneOffset());
-            const dia = String(fecha.getDate()).padStart(2, '0');
-            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-            const anio = fecha.getFullYear();
-            return `${dia}/${mes}/${anio}`;
+    btnCancelEditLic.addEventListener("click", ()=>{
+      editingLicId = null;
+      btnSubmitLic.textContent = "Registrar licencia";
+      btnCancelEditLic.style.display = "none";
+      $("#fechaInicio").value="";
+      $("#fechaFin").value="";
+      $("#cubre").value="";
+      $("#profesional").value="";
+      setStatus("");
+    });
+
+    async function handleEditLic(id){
+      const lic = cacheLic.find(l=>l.id===id);
+      if(!lic) return;
+      editingLicId = id;
+      $("#profesional").value = lic.profesional || "";
+      $("#fechaInicio").value = fmtISO(lic.inicio);
+      $("#fechaFin").value    = fmtISO(lic.fin);
+      $("#cubre").value       = lic.cubre || "";
+      btnSubmitLic.textContent = "Guardar cambios";
+      btnCancelEditLic.style.display = "inline-flex";
+      setStatus("Editando licencia (guardá o cancelá la edición).");
+      document.getElementById("formLicencia").scrollIntoView({behavior:"smooth"});
+    }
+
+    async function handleDeleteLic(id){
+      const lic = cacheLic.find(l=>l.id===id);
+      const msg = `¿Seguro que querés borrar la licencia de ${lic?.profesional || ""} (${fmtAR(lic?.inicio)} → ${fmtAR(lic?.fin)})?`;
+      if(!confirm(msg)) return;
+
+      try{
+        await deleteDoc(doc(dbFS, COL_LICENCIAS, id));
+        alert("Licencia eliminada.");
+      } catch(err){
+        console.error("Error eliminando licencia:", err);
+        alert("Error eliminando licencia: " + (err.message || err.code));
+        setStatus("Error eliminando licencia: " + (err.message || err.code));
+      }
+    }
+
+    tbodyLic.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button");
+      if(!btn) return;
+      const id = btn.dataset.id;
+      if(btn.classList.contains("btn-edit-lic")){
+        handleEditLic(id);
+      } else if(btn.classList.contains("btn-del-lic")){
+        handleDeleteLic(id);
+      }
+    });
+
+    // === PERSONAL: alta / edición ===
+    $("#formPersonal").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const nombre = $("#nombrePersonal").value.trim();
+      if(!nombre){
+        alert("Completá el nombre.");
+        return;
+      }
+
+      try{
+        if(editingPersId){
+          await updateDoc(doc(dbFS, COL_PERSONAL, editingPersId), {
+            nombre
+          });
+          alert("Profesional actualizado.");
+        } else {
+          await addDoc(collection(dbFS, COL_PERSONAL), {
+            nombre,
+            creadoEn:new Date().toISOString()
+          });
+          alert("Profesional agregado.");
         }
+        $("#nombrePersonal").value="";
+        editingPersId = null;
+        btnSubmitPers.textContent = "Agregar profesional";
+        btnCancelEditPers.style.display = "none";
+        await loadPersonal();
+        setStatus("");
+      } catch(err){
+        console.error("Error al guardar profesional:", err);
+        alert("Error al guardar profesional: " + (err.message || err.code));
+        setStatus("Error al guardar profesional: " + (err.message || err.code));
+      }
+    });
 
-        // Renderiza el panel "Todas las Licencias"
-        function renderizarTodasLicencias(licencias) {
-            listaTodasLicencias.innerHTML = '';
-            if (licencias.length === 0) {
-                listaTodasLicencias.innerHTML = '<li class="empty-list-msg">No hay licencias registradas.</li>';
-                return;
-            }
+    btnCancelEditPers.addEventListener("click", ()=>{
+      editingPersId = null;
+      btnSubmitPers.textContent = "Agregar profesional";
+      btnCancelEditPers.style.display = "none";
+      $("#nombrePersonal").value="";
+      setStatus("");
+    });
 
-            const licenciasOrdenadas = [...licencias].sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio));
-            licenciasOrdenadas.forEach(licencia => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <div class="info">
-                        <strong>${licencia.profesional}</strong>
-                        <span>Del ${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span>
-                        <span>Cubre: ${licencia.quienCubre}</span>
-                    </div>
-                    <button class="delete-btn" data-id="${licencia.id}">Eliminar</button>
-                `;
-                listaTodasLicencias.appendChild(li);
-            });
-        }
+    async function handleEditPers(id){
+      const per = cachePersonal.find(p=>p.id===id);
+      if(!per) return;
+      editingPersId = id;
+      $("#nombrePersonal").value = per.nombre || "";
+      btnSubmitPers.textContent = "Guardar cambios";
+      btnCancelEditPers.style.display = "inline-flex";
+      setStatus("Editando profesional (guardá o cancelá la edición).");
+      document.getElementById("formPersonal").scrollIntoView({behavior:"smooth"});
+    }
 
-        // Renderiza los paneles de "Mes Actual" y "Próximo Mes"
-        function renderizarPanelesDashboard(licencias) {
-            listaMesActual.innerHTML = '';
-            listaProximoMes.innerHTML = '';
+    async function handleDeletePers(id){
+      const per = cachePersonal.find(p=>p.id===id);
+      const msg = `¿Seguro que querés borrar al profesional "${per?.nombre || ""}"?`;
+      if(!confirm(msg)) return;
 
-            const hoy = new Date();
-            const hoyLocal = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-            const anioActual = hoyLocal.getFullYear();
-            const mesActual = hoyLocal.getMonth();
+      try{
+        await deleteDoc(doc(dbFS, COL_PERSONAL, id));
+        alert("Profesional eliminado.");
+        await loadPersonal();
+      } catch(err){
+        console.error("Error eliminando profesional:", err);
+        alert("Error eliminando profesional: " + (err.message || err.code));
+        setStatus("Error eliminando profesional: " + (err.message || err.code));
+      }
+    }
 
-            const inicioMesActual = new Date(anioActual, mesActual, 1);
-            const finMesActual = new Date(anioActual, mesActual + 1, 0);
+    tbodyPersonal.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button");
+      if(!btn) return;
+      const id = btn.dataset.id;
+      if(btn.classList.contains("btn-edit-pers")){
+        handleEditPers(id);
+      } else if(btn.classList.contains("btn-del-pers")){
+        handleDeletePers(id);
+      }
+    });
 
-            const anioProximo = (mesActual === 11) ? anioActual + 1 : anioActual;
-            const mesProximo = (mesActual === 11) ? 0 : mesActual + 1;
-            const inicioProximoMes = new Date(anioProximo, mesProximo, 1);
-            const finProximoMes = new Date(anioProximo, mesProximo + 1, 0);
+    // === HISTORIAL ===
+    $("#buscarHistorial").addEventListener("click", async ()=>{
+      const nombre = $("#buscadorProfesional").value;
+      resHist.innerHTML = "";
+      if(!nombre){
+        resHist.textContent = "Seleccioná un profesional.";
+        return;
+      }
 
-            let hayEnMesActual = false;
-            let hayEnProximoMes = false;
+      let items = [];
+      try{
+        const col = collection(dbFS, COL_LICENCIAS);
+        const [s1,s2,s3,s4,s5] = await Promise.all([
+          getDocs(query(col, where("profesional","==",nombre))),
+          getDocs(query(col, where("profesionalNombre","==",nombre))),
+          getDocs(query(col, where("professional","==",nombre))),
+          getDocs(query(col, where("Profesional","==",nombre))),
+          getDocs(query(col, where("ApellidoNombre","==",nombre))),
+        ]);
+        s1.forEach(d=>items.push(d.data()));
+        s2.forEach(d=>items.push(d.data()));
+        s3.forEach(d=>items.push(d.data()));
+        s4.forEach(d=>items.push(d.data()));
+        s5.forEach(d=>items.push(d.data()));
+      } catch(err){
+        console.error("Error buscando historial:", err);
+        resHist.textContent = "Error al buscar el historial: " + (err.message || err.code);
+        setStatus("Error al buscar historial: " + (err.message || err.code));
+        return;
+      }
 
-            const seSolapan = (inicioA, finA, inicioB, finB) => {
-                const finLicenciaEfectiva = new Date(finA.getTime());
-                finLicenciaEfectiva.setHours(23, 59, 59);
-                const inicioMesEfectivo = new Date(inicioB.getTime());
-                inicioMesEfectivo.setHours(0, 0, 0);
-                return inicioA <= finB && finLicenciaEfectiva >= inicioMesEfectivo;
-            };
+      if(items.length===0){
+        resHist.textContent="Sin licencias registradas.";
+        return;
+      }
 
-            licencias.forEach(licencia => {
-                const partsInicio = licencia.fechaInicio.split('-').map(Number);
-                const partsFin = licencia.fechaFin.split('-').map(Number);
-                const inicioLicencia = new Date(partsInicio[0], partsInicio[1] - 1, partsInicio[2]);
-                const finLicencia = new Date(partsFin[0], partsFin[1] - 1, partsFin[2]);
+      items.sort((a,b)=>{
+        const da = toDate(a.inicio||a.fechaInicio||a.FechaInicio||a.desde||a.Desde||a.FechaDesde);
+        const db = toDate(b.inicio||b.fechaInicio||b.FechaInicio||b.desde||b.Desde||b.FechaDesde);
+        return db - da;
+      });
 
-                if (seSolapan(inicioLicencia, finLicencia, inicioMesActual, finMesActual)) {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<div class="info"><strong>${licencia.profesional}</strong><span>${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span></div>`;
-                    listaMesActual.appendChild(li);
-                    hayEnMesActual = true;
-                }
+      const table = document.createElement("table");
+      table.innerHTML = `<thead><tr><th>Cubre</th><th>Inicio</th><th>Fin</th></tr></thead><tbody></tbody>`;
+      const tb = table.querySelector("tbody");
+      items.forEach(d=>{
+        const ini = d.inicio || d.fechaInicio || d.FechaInicio || d.desde || d.Desde || d.FechaDesde;
+        const fin = d.fin    || d.fechaFin    || d.FechaFin    || d.hasta || d.Hasta || d.FechaHasta;
+        const cubre = d.cubre || d.Cubre || d.cubreServicio || d.cobertura || d.Cobertura || "";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `${td(cubre)}${td(fmtAR(ini))}${td(fmtAR(fin))}`;
+        tb.appendChild(tr);
+      });
+      const wrap = document.createElement("div");
+      wrap.className="table-wrap";
+      wrap.appendChild(table);
+      resHist.appendChild(wrap);
+    });
 
-                if (seSolapan(inicioLicencia, finLicencia, inicioProximoMes, finProximoMes)) {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<div class="info"><strong>${licencia.profesional}</strong><span>${formatFecha(licencia.fechaInicio)} al ${formatFecha(licencia.fechaFin)}</span></div>`;
-                    listaProximoMes.appendChild(li);
-                    hayEnProximoMes = true;
-                }
-            });
-
-            if (!hayEnMesActual) listaMesActual.innerHTML = '<li class="empty-list-msg">Nadie de licencia este mes.</li>';
-            if (!hayEnProximoMes) listaProximoMes.innerHTML = '<li class="empty-list-msg">Sin licencias programadas.</li>';
-        }
-
-        // --- Funciones de "Escucha" (onSnapshot) ---
-
-        // Se suscribe a los cambios en la colección 'personal'
-        function escucharPersonal() {
-            const q = query(collection(db, personalColPath));
-            onSnapshot(q, (snapshot) => {
-                const personal = [];
-                snapshot.docs.forEach(doc => {
-                    personal.push({ id: doc.id, ...doc.data() });
-                });
-                renderizarListaPersonal(personal);
-                renderizarSelectProfesional(personal);
-            }, (error) => {
-                console.error("Error escuchando personal: ", error);
-                listaPersonal.innerHTML = '<li class="empty-list-msg">Error al cargar personal.</li>';
-            });
-        }
-
-        // Se suscribe a los cambios en la colección 'licencias'
-        function escucharLicencias() {
-            const q = query(collection(db, licenciasColPath));
-            onSnapshot(q, (snapshot) => {
-                const licencias = [];
-                snapshot.docs.forEach(doc => {
-                    licencias.push({ id: doc.id, ...doc.data() });
-                });
-                renderizarTodasLicencias(licencias);
-                renderizarPanelesDashboard(licencias);
-            }, (error) => {
-                console.error("Error escuchando licencias: ", error);
-                listaTodasLicencias.innerHTML = '<li class="empty-list-msg">Error al cargar licencias.</li>';
-            });
-        }
-
-        // --- Manejadores de Eventos (Formularios y Clicks) ---
-
-        // Configura los 'submit' de los formularios
-        function setupFormListeners() {
-            // Agregar Personal
-            formPersonal.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nombre = inputNombrePersonal.value.trim();
-                if (nombre) {
-                    try {
-                        await addDoc(collection(db, personalColPath), { nombre: nombre });
-                        inputNombrePersonal.value = '';
-                    } catch (error) {
-                        console.error("Error agregando personal: ", error);
-                    }
-                }
-            });
-
-            // Agregar Licencia
-            formLicencia.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const profesional = selectProfesional.value;
-                const fechaInicio = inputFechaInicio.value;
-                const fechaFin = inputFechaFin.value;
-                const quienCubre = inputQuienCubre.value.trim();
-
-                if (!profesional || !fechaInicio || !fechaFin || !quienCubre) return;
-                if (new Date(fechaFin) < new Date(fechaInicio)) return;
-
-                const nuevaLicencia = { profesional, fechaInicio, fechaFin, quienCubre };
-                
-                try {
-                    await addDoc(collection(db, licenciasColPath), nuevaLicencia);
-                    formLicencia.reset();
-                } catch (error) {
-                    console.error("Error agregando licencia: ", error);
-                }
-            });
-        }
-
-        // Configura los 'click' para borrar (delegación de eventos)
-        function setupClickListeners() {
-            // Borrar Personal
-            listaPersonal.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('delete-btn')) {
-                    const id = e.target.getAttribute('data-id');
-                    try {
-                        await deleteDoc(doc(db, personalColPath, id));
-                    } catch (error) {
-                        console.error("Error borrando personal: ", error);
-                    }
-                }
-            });
-
-            // Borrar Licencia
-            listaTodasLicencias.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('delete-btn')) {
-                    const id = e.target.getAttribute('data-id');
-                    try {
-                        await deleteDoc(doc(db, licenciasColPath, id));
-                    } catch (error) {
-                        console.error("Error borrando licencia: ", error);
-                    }
-                }
-            });
-        }
-
-
-        // --- Inicialización ---
-        async function inicializarApp() {
-            // Chequeamos si la configuración fue pegada
-            if (firebaseConfig.apiKey === "TU_API_KEY_VA_AQUI") {
-                authStatusEl.textContent = "Error: Configuración de Firebase no encontrada. Pega tus claves en el archivo index.html.";
-                return;
-            }
-
-            try {
-                // 1. Inicializar App y Servicios
-                // ¡CORREGIDO!
-                // La variable 'app' se declara arriba y se asigna aquí.
-                app = initializeApp(firebaseConfig);
-                
-                // db = getFirestore(app); // <-- Reemplazamos esta línea
-                // Habilitamos la persistencia offline
-                db = initializeFirestore(app, {
-                    localCache: persistentLocalCache({})
-                }); // <-- Por esta nueva inicialización
-                
-                auth = getAuth(app);
-                setLogLevel('Debug'); // Para ver logs en consola
-
-                // 2. Autenticación (¡MODIFICADO!)
-                // =======================================================================
-                // SACAMOS TODA LA LÓGICA DE 'initialAuthToken' Y 'signInWithCustomToken'.
-                // Ahora, la app *siempre* iniciará sesión de forma anónima
-                // cuando la subas a tu propio servidor.
-                // =======================================================================
-                
-                await signInAnonymously(auth);
-
-                // 3. Escuchar cambios de autenticación
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        authStatusEl.textContent = "Conectado";
-                        userIdEl.textContent = user.uid; // Mostrar el ID de usuario
-
-                        // 4. Configurar escuchadores de datos (¡Solo después de estar autenticado!)
-                        escucharPersonal();
-                        escucharLicencias();
-
-                        // 5. Configurar manejadores de formularios y clicks
-                        setupFormListeners();
-                        setupClickListeners();
-
-                    } else {
-                        authStatusEl.textContent = "Desconectado";
-                        userIdEl.textContent = "N/A";
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error al inicializar Firebase: ", error);
-                authStatusEl.textContent = "Error de conexión";
-            }
-        }
-
-        // --- Punto de Entrada ---
-        document.addEventListener('DOMContentLoaded', inicializarApp);
-    </script>
+    // Inicio: login anónimo + datos
+    (async ()=>{
+      try{
+        setStatus("Conectando a Firebase...");
+        await signInAnonymously(auth);
+        setStatus("Conectado. Cargando datos...");
+      } catch(e){
+        console.error("Error de autenticación:", e);
+        setStatus("Error de autenticación Firebase: " + (e.message || e.code));
+      }
+      await loadPersonal();
+      listenLicencias();
+    })();
+  </script>
 </body>
 </html>
