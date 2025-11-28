@@ -281,19 +281,33 @@
     const statusEl = $("#status");
     const setStatus = msg => { if(statusEl) statusEl.textContent = msg || ""; };
 
-    // Convierte distintos tipos a Date
+    // CORRECCIÓN DE FECHAS:
+    // Evitamos que las strings "YYYY-MM-DD" se interpreten como UTC
+    // y se desplacen al día anterior por la zona horaria.
     const toDate = (v)=>{
       if(!v) return null;
       if(v instanceof Date) return v;
       if(typeof v.toDate === "function") return v.toDate(); // Timestamp Firestore
+      
+      // Si es un string tipo "2023-01-01", lo forzamos a interpretarse en hora local
+      // creando la fecha con año, mes y día explícitos.
+      if(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const [y, m, d] = v.split('-').map(Number);
+        return new Date(y, m - 1, d); // Constructor local: new Date(año, mesIndex, dia)
+      }
+
       return new Date(v);
     };
 
     // Formato para <input type="date"> → YYYY-MM-DD
+    // Usamos métodos locales (getFullYear, getMonth, getDate) para mantener la fecha exacta
     const fmtISO = d => {
       const x = toDate(d);
       if(!x || isNaN(+x)) return "";
-      return x.toISOString().slice(0,10);
+      const day = x.getDate().toString().padStart(2,"0");
+      const mon = (x.getMonth()+1).toString().padStart(2,"0");
+      const year = x.getFullYear();
+      return `${year}-${mon}-${day}`;
     };
 
     // Formato argentino para mostrar → DD/MM/AAAA
