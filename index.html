@@ -114,61 +114,65 @@
 
     /* === ESTILOS ESPECÍFICOS DE BLOQUES DE MES === */
     
-    /* 1. Mes Siguiente (DESTACADO PRINCIPAL) */
-    #blockMesSiguiente {
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    /* Mixin visual para bloques destacados */
+    .highlight-block {
       border: none;
       color: white;
-      box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.3);
       position: relative;
       overflow: hidden;
     }
     /* Decoración de fondo sutil */
-    #blockMesSiguiente::after {
+    .highlight-block::after {
       content: "";
       position: absolute;
       top: -50px; right: -50px;
       width: 200px; height: 200px;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
       border-radius: 50%;
       pointer-events: none;
     }
-
-    #blockMesSiguiente h2,
-    #blockMesSiguiente .count {
+    
+    .highlight-block h2,
+    .highlight-block .count {
       color: white;
       text-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
+
+    /* 1. Mes Actual (VERDE CLARO / ESMERALDA) */
+    #blockMesActual {
+      /* Gradiente Esmeralda más claro y vibrante */
+      background: linear-gradient(135deg, #34d399, #059669); 
+      box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+    }
+
+    /* 2. Mes Siguiente (TEAL / VERDE OSCURO) */
+    #blockMesSiguiente {
+      /* Gradiente Teal más sobrio */
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.3);
+    }
     
-    /* Estilos internos para el bloque destacado */
-    #blockMesSiguiente .item {
-      background: rgba(255,255,255,0.1); /* Efecto cristal */
-      border: 1px solid rgba(255,255,255,0.2);
+    /* Estilos internos para los elementos dentro de bloques destacados (blanco semi-transparente) */
+    .highlight-block .item {
+      background: rgba(255,255,255,0.15); /* Efecto cristal más fuerte */
+      border: 1px solid rgba(255,255,255,0.25);
       color: white;
     }
-    #blockMesSiguiente .item .dates { color: rgba(255,255,255,0.8); }
-    #blockMesSiguiente .pill {
+    .highlight-block .item .dates { color: rgba(255,255,255,0.9); }
+    
+    .highlight-block .pill {
       background: rgba(255,255,255,0.2);
       border: 1px solid rgba(255,255,255,0.3);
       color: white;
     }
-    #blockMesSiguiente .pill .dot { background: white; box-shadow: 0 0 4px white; }
+    .highlight-block .pill .dot { background: white; box-shadow: 0 0 4px white; }
 
-    /* 2. Mes Actual (SECUNDARIO PERO CLARO) */
-    #blockMesActual {
-      background: var(--panel);
-      border-left: 5px solid var(--primary); /* Línea lateral indicadora */
-    }
-    #blockMesActual h2 { color: var(--primary-dark); }
-    #blockMesActual .item {
-      background: var(--bg);
-      border: 1px solid var(--border);
-    }
 
     /* === KPIS Y LISTAS === */
     .count { font-size: 28px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
     .kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     
+    /* Pill por defecto (para contextos claros) */
     .pill {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 4px 10px;
@@ -182,10 +186,15 @@
     .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
 
     .biglist { display: flex; flex-direction: column; gap: 8px; }
+    
+    /* Item por defecto */
     .item {
       padding: 12px 16px;
       border-radius: 8px;
       display: flex; justify-content: space-between; align-items: center;
+      /* Por defecto sin fondo especial en contenedores blancos, o gris muy suave */
+      background: var(--bg);
+      border: 1px solid var(--border);
     }
     .item .who { font-weight: 600; font-size: 15px; }
     .item .dates { font-size: 13px; margin-top: 2px; color: var(--text-muted); }
@@ -339,26 +348,28 @@
     </div>
     <div id="status"></div>
 
-    <!-- BLOQUES DESTACADOS (Orden invertido visualmente en prioridad) -->
+    <!-- BLOQUES DESTACADOS -->
     
-    <!-- Mes Siguiente (DESTACADO POR PEDIDO DEL USUARIO) -->
-    <div class="card" id="blockMesSiguiente">
+    <!-- Mes Actual (DESTACADO: Verde Claro) -->
+    <div class="card highlight-block" id="blockMesActual">
+      <div style="display:flex; justify-content:space-between; align-items:start">
+        <h2 id="titleMesActual">Licencias de este mes</h2>
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:0.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </div>
+      <div class="count" id="countMesActual">0 licencias</div>
+      <div class="kpis" id="kpisMesActual"></div>
+      <div class="biglist" id="listMesActual"></div>
+    </div>
+
+    <!-- Mes Siguiente (DESTACADO: Verde Oscuro/Teal) -->
+    <div class="card highlight-block" id="blockMesSiguiente">
       <div style="display:flex; justify-content:space-between; align-items:start">
         <h2 id="titleMesSiguiente">Licencias del mes siguiente</h2>
-        <!-- Icono decorativo -->
         <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:0.6"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
       </div>
       <div class="count" id="countMesSiguiente">0 licencias</div>
       <div class="kpis" id="kpisMesSiguiente"></div>
       <div class="biglist" id="listMesSiguiente"></div>
-    </div>
-
-    <!-- Mes Actual (Estilo estándar) -->
-    <div class="card" id="blockMesActual">
-      <h2 id="titleMesActual">Licencias de este mes</h2>
-      <div class="count" id="countMesActual">0 licencias</div>
-      <div class="kpis" id="kpisMesActual"></div>
-      <div class="biglist" id="listMesActual"></div>
     </div>
 
     <!-- FORM LICENCIAS -->
@@ -394,7 +405,7 @@
       </form>
     </div>
 
-    <!-- TABLA LICENCIAS -->
+    <!-- TABLA LICENCIAS (Cerrada por defecto) -->
     <details>
       <summary>Listado de Licencias</summary>
       <div class="inner">
